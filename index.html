@@ -1,0 +1,664 @@
+<!doctype html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Le Compte est Bon - Mathador (HTML/JS)</title>
+    <style>
+        :root{
+            --bg1:#eef2ff; --bg2:#f3e8ff;
+            --card:#ffffff; --muted:#6b7280;
+            --blue:#4f46e5; --indigo:#4f46e5; --purple:#7c3aed;
+            --orange:#f97316; --green:#10b981; --yellow:#f59e0b;
+        }
+        html,body{height:100%; margin:0; font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;}
+        body{
+            background: linear-gradient(135deg,var(--bg1),var(--bg2));
+            padding:24px;
+            -webkit-font-smoothing:antialiased;
+        }
+        .container{max-width:1000px; margin:0 auto;}
+        .card{background:var(--card); border-radius:12px; box-shadow:0 6px 24px rgba(16,24,40,0.08); padding:20px; margin-bottom:18px;}
+        h1{color:#3730a3; margin:0 0 10px; font-size:26px; text-align:center;}
+        .topstats{display:flex; gap:12px; justify-content:space-between; align-items:center; margin-bottom:12px;}
+        .stat{flex:1; text-align:center;}
+        .stat .label{color:var(--muted); font-size:12px;}
+        .stat .value{font-size:36px; font-weight:700; color:var(--indigo);}
+        .controls{display:flex; gap:10px; justify-content:center; margin-bottom:12px; flex-wrap:wrap;}
+        select, button{padding:10px 14px; border-radius:10px; border:1px solid #e6e6e6; font-weight:600; cursor:pointer;}
+        .btn-primary{background:var(--indigo); color:white; border:none;}
+        .btn-orange{background:var(--orange); color:white; border:none;}
+        .btn-yellow{background:var(--yellow); color:white; border:none;}
+        .btn-disabled{background:#e5e7eb; color:#9ca3af; cursor:not-allowed; border:1px solid #e5e7eb;}
+        .numbers-grid{display:grid; grid-template-columns:repeat(5,1fr); gap:10px;}
+        .num-btn{height:64px; border-radius:10px; font-size:22px; font-weight:700; border:none; cursor:pointer; transition:transform .12s;}
+        .num-btn:active{transform:scale(.98);}
+        .num-available{background:var(--indigo); color:white;}
+        .num-used{background:#f3f4f6; color:#9ca3af; cursor:not-allowed;}
+        .num-selected{background:#f59e0b; color:white; box-shadow:0 8px 20px rgba(245,158,11,0.18); transform:scale(1.03);}
+        .result-btn{height:56px; border-radius:10px; font-size:20px; font-weight:700; border:none; cursor:pointer;}
+        .result-available{background:var(--green); color:white;}
+        .ops-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-top:8px;}
+        .op-btn{height:60px; border-radius:10px; font-weight:800; font-size:22px; color:white; display:flex;align-items:center;justify-content:center; flex-direction:column; gap:4px; border:none; cursor:pointer;}
+        .op-plus{background:#3b82f6;}
+        .op-times{background:#6366f1;}
+        .op-minus{background:#8b5cf6;}
+        .op-div{background:#7c3aed;}
+        .op-points{font-size:12px; opacity:.9;}
+        .pending{margin-top:12px; padding:10px; background:#fffbeb; border:1px solid #fef3c7; border-radius:8px; text-align:center;}
+        .history-list{display:flex;flex-direction:column; gap:8px;}
+        .history-item{display:flex; justify-content:space-between; padding:10px; border-radius:8px; background:#f8fafc; font-family:monospace; font-weight:600;}
+        .center{text-align:center;}
+        .small{font-size:13px; color:var(--muted);}
+        .modal-back{position:fixed; inset:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:50;}
+        .modal{background:white; padding:22px; border-radius:12px; max-width:460px; width:92%;}
+        .flex{display:flex;}
+        .gap-2>*{margin-right:8px;}
+        ul.rules{padding-left:18px; color:#374151; line-height:1.55;}
+        .solution-step{display:flex; justify-content:space-between; padding:8px; background:#fff7ed; border-radius:8px; border:1px solid #fef3c7;}
+        @media (max-width:700px){
+            .numbers-grid{grid-template-columns:repeat(3,1fr);}
+            .topstats{flex-direction:column; gap:8px; align-items:stretch;}
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="card">
+        <h1>Le Compte est Bon — Mathador</h1>
+        <div class="topstats">
+            <div class="stat">
+                <div class="label">Nombre cible</div>
+                <div id="target" class="value">--</div>
+            </div>
+            <div class="stat">
+                <div class="label">Score</div>
+                <div id="score" class="value" style="color:var(--purple)">0</div>
+            </div>
+            <div class="stat">
+                <div class="label">Essais restants</div>
+                <div id="attempts" class="value" style="color:var(--orange)">3</div>
+            </div>
+        </div>
+
+        <div id="current-result-box" style="display:none; margin-bottom:10px; background:#ecfdf5; padding:12px; border-radius:8px;">
+            <div class="small">Résultat actuel</div>
+            <div id="current-result" style="font-size:26px; font-weight:800; color:#059669;">0</div>
+            <div id="must-use-warning" class="small" style="display:none; color:#059669; margin-top:6px;">
+                ⚠️ Ce résultat doit être utilisé dans le prochain calcul (en 1ère ou 2ème position)
+            </div>
+        </div>
+
+        <div class="controls">
+            <select id="difficulty">
+                <option value="easy">Facile</option>
+                <option value="medium" selected>Moyen</option>
+                <option value="hard">Difficile</option>
+            </select>
+            <button id="new-game" class="btn-primary">🔁 Nouvelle partie</button>
+            <button id="give-up-try" class="btn-orange">Abandonner cet essai</button>
+        </div>
+
+        <div id="solution-area" style="display:none; margin-bottom:12px;" class="card">
+            <h3 style="margin:0 0 8px;">Solution optimale (score max: <span id="optimal-score">0</span>)</h3>
+            <div id="optimal-steps"></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2 style="margin-top:0;">Nombres disponibles</h2>
+        <div id="numbers" class="numbers-grid" style="margin-bottom:12px;"></div>
+
+        <div id="result-container" style="margin-top:8px;"></div>
+    </div>
+
+    <div class="card">
+        <h2 style="margin-top:0;">Opérations</h2>
+        <div class="ops-grid">
+            <button class="op-btn op-plus" data-op="+" title="1 pt">+ <span class="op-points">1pt</span></button>
+            <button class="op-btn op-times" data-op="×" title="1 pt">× <span class="op-points">1pt</span></button>
+            <button class="op-btn op-minus" data-op="-" title="2 pts">− <span class="op-points">2pts</span></button>
+            <button class="op-btn op-div" data-op="÷" title="2 pts">÷ <span class="op-points">2pts</span></button>
+        </div>
+
+        <div id="pending" class="pending" style="display:none;"></div>
+    </div>
+
+    <div class="card">
+        <h2 style="margin-top:0;">Historique des opérations</h2>
+        <div id="history" class="history-list">
+            <div class="small center">Aucune opération effectuée</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2 style="margin-top:0;">Règles du jeu</h2>
+        <ul class="rules">
+            <li><strong>3 essais maximum :</strong> vous pouvez réessayer jusqu'à 3 fois.</li>
+            <li><strong>Construction linéaire :</strong> à partir du 2ᵉ calcul, il faut TOUJOURS utiliser le résultat précédent (en 1ʳᵉ ou 2ᵉ position).</li>
+            <li>Chaque nombre ne peut être utilisé qu'une seule fois.</li>
+            <li>Addition et multiplication : 1 point. Soustraction et division : 2 points.</li>
+            <li>Bonus de 3 points si vous atteignez exactement la cible.</li>
+            <li>Les divisions doivent donner un résultat entier. Les soustractions ne peuvent pas donner de résultat négatif.</li>
+        </ul>
+    </div>
+</div>
+
+<!-- Modals -->
+<div id="modal-root"></div>
+
+<script>
+    /*
+      Version JS du composant React fourni.
+      - logique de génération
+      - recherche brute d'une "solution optimale" (similaire à findOptimalSolution)
+      - UI et interactions
+    */
+
+    // état du jeu
+    let state = {
+        gameState: 'ready',
+        target: 0,
+        availableNumbers: [], // {id, value, isUsed}
+        selectedNumber: null,
+        currentResult: null,
+        score: 0,
+        history: [],
+        difficulty: 'medium',
+        showSolution: false,
+        optimalSolution: null,
+        pendingOperation: null,
+        isFirstOperation: true,
+        attemptsLeft: 3,
+        showRetryModal: false
+    };
+
+    // utils
+    const $ = id => document.getElementById(id);
+    const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+
+    // DOM refs
+    const targetEl = $('target');
+    const scoreEl = $('score');
+    const attemptsEl = $('attempts');
+    const numbersEl = $('numbers');
+    const historyEl = $('history');
+    const difficultySel = $('difficulty');
+    const newGameBtn = $('new-game');
+    const giveUpBtn = $('give-up-try');
+    const currentResultBox = $('current-result-box');
+    const currentResultEl = $('current-result');
+    const mustUseWarning = $('must-use-warning');
+    const pendingEl = $('pending');
+    const resultContainer = $('result-container');
+    const solutionArea = $('solution-area');
+    const optimalScoreEl = $('optimal-score');
+    const optimalStepsEl = $('optimal-steps');
+    const modalRoot = $('modal-root');
+
+    // event listeners
+    difficultySel.addEventListener('change', (e) => {
+        state.difficulty = e.target.value;
+        generateGame(state.difficulty);
+    });
+    newGameBtn.addEventListener('click', () => generateGame(state.difficulty));
+    giveUpBtn.addEventListener('click', () => {
+        if (state.isFirstOperation || state.attemptsLeft === 0 || state.gameState === 'won' || state.showSolution) {
+            return;
+        }
+        if (state.attemptsLeft > 1 && !state.isFirstOperation) {
+            state.attemptsLeft--;
+            showRetryModal();
+        } else if (state.attemptsLeft === 1 && !state.isFirstOperation) {
+            state.attemptsLeft = 0;
+            setGameState('failed');
+        }
+    });
+
+    // operation buttons
+    document.querySelectorAll('.op-btn').forEach(btn => {
+        btn.addEventListener('click', () => handleOperationClick(btn.dataset.op));
+    });
+
+    // Génération de partie
+    function generateGame(level) {
+        const getRandomNumbers = (min, max, count) => {
+            const nums = new Set();
+            while (nums.size < count) {
+                nums.add(randInt(min, max));
+            }
+            return Array.from(nums);
+        };
+
+        let baseNumbers = [];
+        let targetRange = {min:10, max:15};
+
+        if (level === 'easy') {
+            baseNumbers = getRandomNumbers(1, 10, 5);
+            targetRange = {min:10, max:15};
+        } else if (level === 'medium') {
+            const small = getRandomNumbers(1,10,3);
+            const medium = getRandomNumbers(5,15,2);
+            baseNumbers = [...small, ...medium];
+            targetRange = {min:15, max:50};
+        } else {
+            const small = getRandomNumbers(1,10,2);
+            const large = getRandomNumbers(5,20,3);
+            baseNumbers = [...small, ...large];
+            targetRange = {min:50, max:100};
+        }
+
+        const targetNum = randInt(targetRange.min, targetRange.max);
+        state.target = targetNum;
+        state.availableNumbers = baseNumbers.map((n,i) => ({id:i, value:n, isUsed:false}));
+        state.selectedNumber = null;
+        state.currentResult = null;
+        state.score = 0;
+        state.history = [];
+        state.gameState = 'playing';
+        state.showSolution = false;
+        state.optimalSolution = null;
+        state.pendingOperation = null;
+        state.isFirstOperation = true;
+        state.attemptsLeft = 3;
+        state.showRetryModal = false;
+
+        render();
+        // calculer solution optimale (brute force)
+        findOptimalSolution(baseNumbers, targetNum);
+    }
+
+    // reset attempt (réessayer)
+    function resetAttempt() {
+        state.availableNumbers = state.availableNumbers.map(n => ({...n, isUsed:false}));
+        state.selectedNumber = null;
+        state.currentResult = null;
+        state.score = 0;
+        state.history = [];
+        state.pendingOperation = null;
+        state.isFirstOperation = true;
+        state.showRetryModal = false;
+        render();
+        closeModal();
+    }
+
+    // gérer abandon d'un essai
+    function handleGiveUp() {
+        state.showRetryModal = false;
+        setGameState('failed');
+        closeModal();
+    }
+
+    // trouver solution optimale (brute force similaire à ton algorithme)
+    function findOptimalSolution(nums, targetValue) {
+        let bestSolution = null;
+        let bestScore = -Infinity;
+
+        // explore les états
+        function explore(available, currentResult, currentPath, currentScore) {
+            if (currentResult === targetValue) {
+                const totalScore = currentScore + 3; // bonus
+                if (totalScore > bestScore) {
+                    bestScore = totalScore;
+                    bestSolution = [...currentPath];
+                }
+                // continuer pour trouver d'autres combinaisons
+            }
+
+            if (currentPath.length >= 5 || available.length === 0) return;
+
+            if (currentResult === null) {
+                // premier calcul: choix de deux nombres
+                for (let i=0;i<available.length;i++){
+                    for (let j=i+1;j<available.length;j++){
+                        const a = available[i];
+                        const b = available[j];
+                        const ops = [];
+
+                        // addition
+                        ops.push({op:'+', a:a, b:b, result:a+b, points:1});
+                        // multiplication
+                        ops.push({op:'×', a:a, b:b, result:a*b, points:1});
+                        // soustraction (toujours positif)
+                        if (a > b) ops.push({op:'-', a:a, b:b, result:a-b, points:2});
+                        if (b > a) ops.push({op:'-', a:b, b:a, result:b-a, points:2});
+                        // division si entière
+                        if (b !== 0 && a % b === 0) ops.push({op:'÷', a:a, b:b, result:a/b, points:2});
+                        if (a !== 0 && b % a === 0) ops.push({op:'÷', a:b, b:a, result:b/a, points:2});
+
+                        for (const op of ops) {
+                            if (op.result > 0 && op.result <= 10000) {
+                                const newAvailable = available.filter((_, idx) => idx !== i && idx !== j);
+                                const step = {operation: `${op.a} ${op.op} ${op.b} = ${op.result}`, points: op.points};
+                                explore(newAvailable, op.result, [...currentPath, step], currentScore + op.points);
+                            }
+                        }
+                    }
+                }
+            } else {
+                for (let i=0;i<available.length;i++){
+                    const nextNum = available[i];
+                    const ops = [];
+
+                    ops.push({op:'+', a:currentResult, b:nextNum, result:currentResult+nextNum, points:1});
+                    ops.push({op:'×', a:currentResult, b:nextNum, result:currentResult*nextNum, points:1});
+                    if (currentResult > nextNum) ops.push({op:'-', a:currentResult, b:nextNum, result:currentResult-nextNum, points:2});
+                    if (nextNum > currentResult) ops.push({op:'-', a:nextNum, b:currentResult, result:nextNum-currentResult, points:2});
+                    if (nextNum !== 0 && currentResult % nextNum === 0) ops.push({op:'÷', a:currentResult, b:nextNum, result:currentResult/nextNum, points:2});
+                    if (currentResult !== 0 && nextNum % currentResult === 0) ops.push({op:'÷', a:nextNum, b:currentResult, result:nextNum/currentResult, points:2});
+
+                    for (const op of ops) {
+                        if (op.result > 0 && op.result <= 10000) {
+                            const newAvailable = available.filter((_, idx) => idx !== i);
+                            const step = {operation: `${op.a} ${op.op} ${op.b} = ${op.result}`, points: op.points};
+                            explore(newAvailable, op.result, [...currentPath, step], currentScore + op.points);
+                        }
+                    }
+                }
+            }
+        }
+
+        explore(nums, null, [], 0);
+        state.optimalSolution = {steps: bestSolution, score: bestScore === -Infinity ? null : bestScore};
+        renderOptimalSolution();
+    }
+
+    // UI rendering
+    function render() {
+        // top
+        targetEl.textContent = state.target;
+        scoreEl.textContent = state.score;
+        attemptsEl.textContent = state.attemptsLeft;
+
+        // numbers
+        numbersEl.innerHTML = '';
+        state.availableNumbers.forEach(n => {
+            const btn = document.createElement('button');
+            btn.className = 'num-btn ' + (n.isUsed ? 'num-used' : (state.selectedNumber && state.selectedNumber.id === n.id ? 'num-selected' : 'num-available'));
+            btn.textContent = n.value;
+            btn.disabled = n.isUsed;
+            btn.addEventListener('click', (e) => {
+                if (state.pendingOperation) {
+                    handleSecondNumber(n);
+                } else {
+                    handleNumberClick(n);
+                }
+            });
+            numbersEl.appendChild(btn);
+        });
+
+        // result button
+        resultContainer.innerHTML = '';
+        if (state.currentResult !== null) {
+            const b = document.createElement('button');
+            b.className = 'result-btn ' + (state.selectedNumber && state.selectedNumber.id === 'result' ? 'num-selected' : 'result-available');
+            b.style.width = '100%';
+            b.textContent = 'Utiliser le résultat: ' + state.currentResult;
+            b.addEventListener('click', () => {
+                if (!state.pendingOperation) {
+                    handleResultClick();
+                } else {
+                    handleSecondNumber({id:'result', value: state.currentResult, isUsed: false});
+                }
+            });
+            resultContainer.appendChild(b);
+        }
+
+        // current result box
+        if (state.currentResult !== null) {
+            currentResultBox.style.display = 'block';
+            currentResultEl.textContent = state.currentResult;
+            mustUseWarning.style.display = state.isFirstOperation ? 'none' : 'block';
+        } else {
+            currentResultBox.style.display = 'none';
+        }
+
+        // pending
+        if (state.pendingOperation) {
+            pendingEl.style.display = 'block';
+            pendingEl.innerHTML = `<strong>${state.pendingOperation.firstNumber.value} ${state.pendingOperation.op} ?</strong><div class="small">Sélectionnez le second nombre</div>`;
+        } else {
+            pendingEl.style.display = 'none';
+        }
+
+        // history
+        if (state.history.length === 0) {
+            historyEl.innerHTML = '<div class="small center">Aucune opération effectuée</div>';
+        } else {
+            historyEl.innerHTML = '';
+            state.history.forEach(item => {
+                const h = document.createElement('div');
+                h.className = 'history-item';
+                h.innerHTML = `<div>${item.operation}</div><div style="color:var(--purple); font-weight:800;">+${item.points} pts</div>`;
+                historyEl.appendChild(h);
+            });
+        }
+
+        // solution area
+        solutionArea.style.display = state.showSolution ? 'block' : 'none';
+        if (state.optimalSolution && state.optimalSolution.score !== null) {
+            optimalScoreEl.textContent = state.optimalSolution.score;
+        } else {
+            optimalScoreEl.textContent = '--';
+        }
+
+        // buttons enable/disable
+        giveUpBtn.className = (state.isFirstOperation || state.attemptsLeft === 0 || state.gameState === 'won' || state.showSolution) ? 'btn-disabled' : 'btn-orange';
+    }
+
+    // helpers de sélection
+    function handleNumberClick(number) {
+        if (number.isUsed) return;
+        state.selectedNumber = number;
+        render();
+    }
+
+    function handleResultClick() {
+        if (state.currentResult !== null) {
+            state.selectedNumber = {id:'result', value: state.currentResult, isUsed:false};
+            render();
+        }
+    }
+
+    // cliquer sur une opération
+    function handleOperationClick(op) {
+        if (!state.selectedNumber) {
+            alert("Sélectionnez d'abord un nombre !");
+            return;
+        }
+        state.pendingOperation = {op, firstNumber: state.selectedNumber};
+        render();
+    }
+
+    // quand on choisit le second nombre
+    function handleSecondNumber(number) {
+        if (!state.pendingOperation) return;
+
+        // règle: après le premier calcul (isFirstOperation=false), TOUJOURS utiliser le résultat précédent
+        if (!state.isFirstOperation) {
+            const firstIsResult = state.pendingOperation.firstNumber.id === 'result';
+            const secondIsResult = number.id === 'result';
+            if (!firstIsResult && !secondIsResult) {
+                alert("Vous devez utiliser le résultat précédent ! Il peut être en première ou deuxième position.");
+                state.pendingOperation = null;
+                state.selectedNumber = null;
+                render();
+                return;
+            }
+        }
+
+        if (number.isUsed && number.id !== 'result') return;
+
+        const {op, firstNumber} = state.pendingOperation;
+        const a = firstNumber.value;
+        const b = number.value;
+        let result = 0;
+        let points = 0;
+
+        // effectuer l'opération avec validation
+        if (op === '+') { result = a + b; points = 1; }
+        else if (op === '×') { result = a * b; points = 1; }
+        else if (op === '-') {
+            if (a < b) {
+                alert('Le résultat serait négatif !');
+                state.pendingOperation = null;
+                state.selectedNumber = null;
+                render();
+                return;
+            }
+            result = a - b; points = 2;
+        }
+        else if (op === '÷') {
+            if (b === 0 || a % b !== 0) {
+                alert(b === 0 ? 'Division par zéro !' : 'Le résultat doit être un entier !');
+                state.pendingOperation = null;
+                state.selectedNumber = null;
+                render();
+                return;
+            }
+            result = a / b; points = 2;
+        } else {
+            state.pendingOperation = null;
+            state.selectedNumber = null;
+            return;
+        }
+
+        // marquer nombres utilisés (sauf si id === 'result')
+        state.availableNumbers = state.availableNumbers.map(n => {
+            if (n.id === firstNumber.id || n.id === number.id) {
+                return {...n, isUsed: true};
+            }
+            return n;
+        });
+
+        const operationStr = `${a} ${op} ${b} = ${result}`;
+        state.history.push({operation: operationStr, points});
+        state.score += points;
+
+        if (result === state.target) {
+            state.score += 3; // bonus
+            setGameState('won');
+        } else {
+            // vérifier s'il reste des nombres non utilisés
+            const remaining = state.availableNumbers.filter(n => !n.isUsed);
+            if (remaining.length === 0 && state.attemptsLeft > 1) {
+                state.attemptsLeft -= 1;
+                showRetryModal();
+            } else if (remaining.length === 0 && state.attemptsLeft === 1) {
+                state.attemptsLeft = 0;
+                setGameState('failed');
+            }
+        }
+
+        state.currentResult = result;
+        state.selectedNumber = null;
+        state.pendingOperation = null;
+        state.isFirstOperation = false;
+        render();
+    }
+
+    // changement d'état de jeu
+    function setGameState(gs) {
+        state.gameState = gs;
+        if (gs === 'won') {
+            openModalWin();
+        } else if (gs === 'failed') {
+            openModalFail();
+        } else {
+            closeModal();
+        }
+        render();
+    }
+
+    /* --- Modals --- */
+    function openModalWin() {
+        modalRoot.innerHTML = `
+    <div class="modal-back">
+      <div class="modal center">
+        <div style="font-size:44px; color:${'#f59e0b'}">🏆</div>
+        <h2 style="margin:8px 0 4px; color:#059669">Bravo !</h2>
+        <p style="font-size:18px; margin:6px 0;">Vous avez atteint la cible !</p>
+        <div style="font-size:26px; font-weight:800; color:var(--purple); margin-bottom:10px;">Score: ${state.score}</div>
+        <div style="display:flex; gap:10px; justify-content:center;">
+          <button id="see-solution-win" class="btn-yellow">💡 Voir la solution optimale</button>
+          <button id="new-game-win" class="btn-primary">🔁 Nouvelle partie</button>
+        </div>
+      </div>
+    </div>
+  `;
+        $('see-solution-win').addEventListener('click', () => { state.showSolution = true; render(); closeModal(); });
+        $('new-game-win').addEventListener('click', () => { generateGame(state.difficulty); closeModal(); });
+    }
+
+    function openModalFail() {
+        modalRoot.innerHTML = `
+    <div class="modal-back">
+      <div class="modal center">
+        <div style="font-size:44px;">😔</div>
+        <h2 style="margin:8px 0 4px; color:#dc2626">Dommage !</h2>
+        <p style="font-size:16px; margin:6px 0;">Vous n'avez pas réussi à atteindre la cible</p>
+        <p style="color:#374151; margin:6px 0;">Nombre cible: <strong>${state.target}</strong></p>
+        <p style="color:#374151; margin-bottom:8px;">Regardez la solution optimale pour vous améliorer !</p>
+        <div style="display:flex; gap:10px; justify-content:center;">
+          <button id="see-solution-fail" class="btn-yellow">💡 Voir la solution</button>
+          <button id="new-game-fail" class="btn-primary">🔁 Nouvelle partie</button>
+        </div>
+      </div>
+    </div>
+  `;
+        $('see-solution-fail').addEventListener('click', () => { state.showSolution = true; render(); closeModal(); });
+        $('new-game-fail').addEventListener('click', () => { generateGame(state.difficulty); closeModal(); });
+    }
+
+    function showRetryModal() {
+        modalRoot.innerHTML = `
+    <div class="modal-back">
+      <div class="modal center">
+        <div style="font-size:44px; color:${'#f97316'}">🔄</div>
+        <h2 style="margin:8px 0 6px; color:#f97316">Essaie encore !</h2>
+        <p style="font-size:16px; margin-bottom:6px;">Il vous reste <strong>${state.attemptsLeft}</strong> essai${state.attemptsLeft>1?'s':''}</p>
+        <p style="color:#374151; margin-bottom:12px;">Vous pouvez réessayer avec les mêmes nombres.</p>
+        <div style="display:flex; gap:10px; justify-content:center;">
+          <button id="retry-try" class="btn-orange">Réessayer</button>
+          <button id="giveup-try" class="btn-disabled">Abandonner</button>
+        </div>
+      </div>
+    </div>
+  `;
+        $('retry-try').addEventListener('click', () => { resetAttempt(); });
+        // give up just sends to failed state
+        const giveBtn = $('giveup-try');
+        giveBtn.className = 'btn-primary';
+        giveBtn.addEventListener('click', () => { handleGiveUp(); closeModal(); });
+    }
+
+    function closeModal() { modalRoot.innerHTML = ''; }
+
+    /* --- Afficher solution optimale --- */
+    function renderOptimalSolution() {
+        if (!state.optimalSolution) return;
+        optimalStepsEl.innerHTML = '';
+        if (state.optimalSolution.steps && state.optimalSolution.steps.length > 0) {
+            state.optimalSolution.steps.forEach(s => {
+                const d = document.createElement('div');
+                d.className = 'solution-step';
+                d.innerHTML = `<div style="font-family:monospace;">${s.operation}</div><div style="font-weight:800; color:#b45309;">+${s.points} pts</div>`;
+                optimalStepsEl.appendChild(d);
+            });
+        } else {
+            optimalStepsEl.innerHTML = `<div class="small">Calcul de la solution en cours ou aucune solution trouvée</div>`;
+        }
+    }
+
+    /* --- quand l'utilisateur veut voir solution via modals --- */
+    function openModalWinSolution() {
+        // (non utilisé mais prêt)
+    }
+
+    /* --- initialisation --- */
+    generateGame('medium');
+    render();
+
+</script>
+</body>
+</html>
