@@ -297,7 +297,7 @@
         // explore les états
         function explore(available, currentResult, currentPath, currentScore) {
             if (currentResult === targetValue) {
-                const totalScore = currentScore + 3; // bonus
+                const totalScore = currentScore + 10; // bonus
                 if (totalScore > bestScore) {
                     bestScore = totalScore;
                     bestSolution = [...currentPath];
